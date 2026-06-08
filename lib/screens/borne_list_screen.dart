@@ -1,8 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-
-import '../models.dart';
-import '../theme/app_theme.dart';
+import '../models/releve.dart';
+import '../main.dart';
 
 class BorneListScreen extends StatefulWidget {
   const BorneListScreen({super.key});
@@ -11,242 +10,133 @@ class BorneListScreen extends StatefulWidget {
   State<BorneListScreen> createState() => _BorneListScreenState();
 }
 
-class _BorneListScreenState extends State<BorneListScreen>
-    with SingleTickerProviderStateMixin {
-  late final Map<String, List<Releve>> _bornes;
-  late final AnimationController _controller;
+class _BorneListScreenState extends State<BorneListScreen> {
+  final Map<String, List<Releve>> _bornes = {
+    'Borne Centrale': [
+      Releve(borne: 'Borne Centrale', indexCourant: 1280, indexPrecedent: 1242, date: DateTime(2026, 5, 8), paye: true),
+      Releve(borne: 'Borne Centrale', indexCourant: 1326, indexPrecedent: 1280, date: DateTime(2026, 6, 1), paye: false),
+    ],
+    'Borne Quartier Nord': [
+      Releve(borne: 'Borne Quartier Nord', indexCourant: 895, indexPrecedent: 850, date: DateTime(2026, 5, 18), paye: true),
+    ],
+    'Borne Marché': [
+      Releve(borne: 'Borne Marché', indexCourant: 2140, indexPrecedent: 2075, date: DateTime(2026, 5, 25), paye: false),
+      Releve(borne: 'Borne Marché', indexCourant: 2198, indexPrecedent: 2140, date: DateTime(2026, 6, 3), paye: false),
+    ],
+  };
 
-  @override
-  void initState() {
-    super.initState();
-    _bornes = buildSampleData();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-    )..forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  int get _totalReleves {
-    return _bornes.values.fold(0, (total, releves) => total + releves.length);
-  }
-
-  int get _totalNonPayes {
-    return _bornes.values
-        .fold(0, (total, releves) => total + releves.countUnpaid);
-  }
-
-  Future<void> _openDetail(String nomBorne, List<Releve> releves) async {
-    await Navigator.pushNamed(
-      context,
-      '/detail',
-      arguments: {
-        'nomBorne': nomBorne,
-        'releves': releves,
-        'tarifM3': kTarifM3,
-      },
-    );
-
-    if (mounted) {
-      setState(() {});
-    }
-  }
+  int get _totalReleves => _bornes.values.fold(0, (s, l) => s + l.length);
+  int get _totalNonPayes => _bornes.values.fold(0, (s, l) => s + l.where((r) => !r.paye).length);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.systemGrouped,
+      backgroundColor: kBackground,
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          _buildAppBar(context),
-          SliverToBoxAdapter(child: _buildStatsBanner()),
+          SliverAppBar(
+            pinned: true,
+            backgroundColor: kTeal,
+            foregroundColor: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            expandedHeight: 88,
+            title: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('ASUFOR', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+                Text('Gestion des bornes-fontaines', style: TextStyle(color: Colors.white70, fontSize: 12)),
+              ],
+            ),
+            actions: [
+              CupertinoButton(
+                padding: const EdgeInsets.only(right: 12),
+                onPressed: () => Navigator.pushNamed(context, '/apropos'),
+                child: const Icon(CupertinoIcons.info_circle, color: Colors.white, size: 22),
+              ),
+            ],
+          ),
+          SliverToBoxAdapter(
+            child: Container(
+              decoration: const BoxDecoration(
+                color: kTeal,
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+              ),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+              child: Row(
+                children: [
+                  _StatBadge(icon: CupertinoIcons.drop_fill, label: 'Bornes', value: '${_bornes.length}'),
+                  const SizedBox(width: 10),
+                  _StatBadge(icon: CupertinoIcons.doc_text, label: 'Relevés', value: '$_totalReleves'),
+                  const SizedBox(width: 10),
+                  _StatBadge(icon: CupertinoIcons.exclamationmark_triangle, label: 'Impayés', value: '$_totalNonPayes', alert: true),
+                ],
+              ),
+            ),
+          ),
           const SliverPadding(
-            padding: EdgeInsets.fromLTRB(16, 24, 16, 10),
+            padding: EdgeInsets.fromLTRB(16, 22, 16, 8),
             sliver: SliverToBoxAdapter(
-              child: Text('Liste des bornes', style: AppText.title3),
+              child: Text('Liste des bornes', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: kLabel, letterSpacing: -0.3)),
             ),
           ),
-          _buildBorneList(),
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverList.separated(
+              itemCount: _bornes.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final nom = _bornes.keys.elementAt(index);
+                final releves = _bornes[nom]!;
+                final nonPayes = releves.where((r) => !r.paye).length;
+                final totalM3 = releves.fold(0.0, (s, r) => s + r.consommation());
+
+                return _BorneCard(
+                  nom: nom,
+                  nombreReleves: releves.length,
+                  totalM3: totalM3,
+                  nonPayes: nonPayes,
+                  onTap: () async {
+                    await Navigator.pushNamed(context, '/detail',
+                        arguments: {'nomBorne': nom, 'releves': releves, 'tarifM3': kTarifM3});
+                    setState(() {});
+                  },
+                );
+              },
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 32)),
         ],
-      ),
-    );
-  }
-
-  SliverAppBar _buildAppBar(BuildContext context) {
-    return SliverAppBar(
-      pinned: true,
-      backgroundColor: AppColors.teal,
-      foregroundColor: Colors.white,
-      surfaceTintColor: Colors.transparent,
-      elevation: 0,
-      expandedHeight: 92,
-      title: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'ASUFOR',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          SizedBox(height: 2),
-          Text(
-            'Gestion des bornes-fontaines',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        CupertinoButton(
-          padding: const EdgeInsets.only(right: 8),
-          onPressed: () => Navigator.pushNamed(context, '/apropos'),
-          child: const Icon(
-            CupertinoIcons.info_circle,
-            color: Colors.white,
-            size: 24,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatsBanner() {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.teal,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-      child: Row(
-        children: [
-          _HeaderStatCard(
-            icon: CupertinoIcons.drop_fill,
-            label: 'Bornes actives',
-            value: _bornes.length.toString(),
-          ),
-          const SizedBox(width: 10),
-          _HeaderStatCard(
-            icon: CupertinoIcons.doc_text_fill,
-            label: 'Total releves',
-            value: _totalReleves.toString(),
-          ),
-          const SizedBox(width: 10),
-          _HeaderStatCard(
-            icon: CupertinoIcons.exclamationmark_triangle_fill,
-            label: 'Non payes',
-            value: _totalNonPayes.toString(),
-            alert: true,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBorneList() {
-    return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      sliver: SliverList.separated(
-        itemCount: _bornes.length,
-        separatorBuilder: (context, index) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final nomBorne = _bornes.keys.elementAt(index);
-          final releves = _bornes[nomBorne] ?? <Releve>[];
-          final delay = index * 0.08;
-
-          return AnimatedBuilder(
-            animation: _controller,
-            builder: (context, child) {
-              final rawT =
-                  ((_controller.value - delay) / (1.0 - delay)).clamp(0.0, 1.0);
-              final t = Curves.easeOutCubic.transform(rawT);
-              return Opacity(
-                opacity: t,
-                child: Transform.translate(
-                  offset: Offset(0, 18 * (1 - t)),
-                  child: child,
-                ),
-              );
-            },
-            child: _StatCard(
-              nomBorne: nomBorne,
-              nombreReleves: releves.length,
-              totalM3: releves.totalVolume,
-              nombreNonPayes: releves.countUnpaid,
-              onTap: () => _openDetail(nomBorne, releves),
-            ),
-          );
-        },
       ),
     );
   }
 }
 
-class _HeaderStatCard extends StatelessWidget {
+class _StatBadge extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
   final bool alert;
 
-  const _HeaderStatCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.alert = false,
-  });
+  const _StatBadge({required this.icon, required this.label, required this.value, this.alert = false});
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        height: 98,
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.18),
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+          color: Colors.white.withOpacity(0.18),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withOpacity(0.2)),
         ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: alert ? AppColors.unpaidSubtle : Colors.white,
-              size: 21,
-            ),
+            Icon(icon, color: alert ? const Color(0xFFFFCC80) : Colors.white, size: 20),
             const SizedBox(height: 5),
-            Text(
-              value,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            Text(value, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
+            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11), textAlign: TextAlign.center),
           ],
         ),
       ),
@@ -254,119 +144,76 @@ class _HeaderStatCard extends StatelessWidget {
   }
 }
 
-class _StatCard extends StatelessWidget {
-  final String nomBorne;
+class _BorneCard extends StatelessWidget {
+  final String nom;
   final int nombreReleves;
   final double totalM3;
-  final int nombreNonPayes;
+  final int nonPayes;
   final VoidCallback onTap;
 
-  const _StatCard({
-    required this.nomBorne,
+  const _BorneCard({
+    required this.nom,
     required this.nombreReleves,
     required this.totalM3,
-    required this.nombreNonPayes,
+    required this.nonPayes,
     required this.onTap,
   });
 
-  bool get _aJour => nombreNonPayes == 0;
-
   @override
   Widget build(BuildContext context) {
-    final couleurEtat = _aJour ? AppColors.teal : AppColors.unpaid;
+    final aJour = nonPayes == 0;
 
     return Material(
-      color: AppColors.systemBackground,
-      borderRadius: BorderRadius.circular(AppRadius.lg),
-      elevation: 0,
+      color: kCard,
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
           decoration: BoxDecoration(
-            color: AppColors.systemBackground,
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            border: Border(left: BorderSide(color: couleurEtat, width: 5)),
-            boxShadow: AppShadows.cardSmall,
+            borderRadius: BorderRadius.circular(14),
+            border: Border(left: BorderSide(color: aJour ? kTeal : kOrange, width: 4)),
+            boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 8, offset: Offset(0, 2))],
           ),
-          padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+          padding: const EdgeInsets.all(14),
           child: Row(
             children: [
               Container(
-                width: 46,
-                height: 46,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  color: AppColors.tealSubtle,
-                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  color: const Color(0xFFE8F7F5),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
-                  CupertinoIcons.drop_fill,
-                  color: AppColors.teal,
-                  size: 24,
-                ),
+                child: const Icon(CupertinoIcons.drop_fill, color: kTeal, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      nomBorne,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppText.headline,
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      '$nombreReleves releve(s) - ${totalM3.toStringAsFixed(1)} m3 consommes',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppText.footnote,
-                    ),
+                    Text(nom, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kLabel, letterSpacing: -0.2)),
+                    const SizedBox(height: 4),
+                    Text('$nombreReleves relevé(s) · ${totalM3.toStringAsFixed(1)} m³',
+                        style: const TextStyle(fontSize: 13, color: kSublabel)),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              _PaymentBadge(nombreNonPayes: nombreNonPayes),
-              const SizedBox(width: 6),
-              const Icon(
-                CupertinoIcons.chevron_right,
-                color: AppColors.labelTertiary,
-                size: 16,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: aJour ? const Color(0xFFE8F7F5) : const Color(0xFFFFF3E0),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  aJour ? 'À jour' : '$nonPayes impayé(s)',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: aJour ? kTeal : kOrange),
+                ),
               ),
+              const SizedBox(width: 6),
+              const Icon(CupertinoIcons.chevron_right, size: 14, color: kSublabel),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PaymentBadge extends StatelessWidget {
-  final int nombreNonPayes;
-
-  const _PaymentBadge({required this.nombreNonPayes});
-
-  @override
-  Widget build(BuildContext context) {
-    final estAJour = nombreNonPayes == 0;
-
-    return Container(
-      constraints: const BoxConstraints(minWidth: 58, maxWidth: 96),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: estAJour ? AppColors.tealSubtle : AppColors.unpaidSubtle,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Text(
-        estAJour ? 'A jour' : '$nombreNonPayes impaye(s)',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: estAJour ? AppColors.teal : AppColors.unpaid,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
         ),
       ),
     );
