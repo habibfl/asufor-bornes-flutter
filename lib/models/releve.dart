@@ -1,5 +1,3 @@
-// Modèle de données pour un relevé de compteur de borne-fontaine
-
 enum StatutPaiement { paye, nonPaye }
 
 class Releve {
@@ -17,17 +15,12 @@ class Releve {
     this.paye = false,
   });
 
-  // Calcule la consommation en m³
-  double consommation() {
-    return indexCourant - indexPrecedent;
-  }
+  // consommation en m³
+  double consommation() => indexCourant - indexPrecedent;
 
-  // Calcule le montant à payer selon le tarif au m³
-  double montantAPayer(double tarifM3) {
-    return consommation() * tarifM3;
-  }
+  // montant selon tarif
+  double montantAPayer(double tarifM3) => consommation() * tarifM3;
 
-  // Retourne le statut sous forme d'enum
   StatutPaiement get statut =>
       paye ? StatutPaiement.paye : StatutPaiement.nonPaye;
 }
