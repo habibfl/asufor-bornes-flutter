@@ -22,6 +22,11 @@ class _ReleveFormScreenState extends State<ReleveFormScreen> {
   bool _paye = false;
   DateTime _date = DateTime.now();
 
+  Releve? _releveAModifier;
+  int? _indexModifier;
+
+  bool get _estModification => _releveAModifier != null;
+
   @override
   void dispose() {
     _indexCourantCtrl.dispose();
@@ -51,13 +56,19 @@ class _ReleveFormScreenState extends State<ReleveFormScreen> {
     final courant = double.parse(_indexCourantCtrl.text.trim());
     final precedent = double.parse(_indexPrecedentCtrl.text.trim());
 
-    _releves.add(Releve(
+    final nouveauReleve = Releve(
       borne: _nomBorne,
       indexCourant: courant,
       indexPrecedent: precedent,
       date: _date,
       paye: _paye,
-    ));
+    );
+
+    if (_estModification && _indexModifier != null) {
+      _releves[_indexModifier!] = nouveauReleve;
+    } else {
+      _releves.add(nouveauReleve);
+    }
 
     Navigator.pop(context);
   }
@@ -72,6 +83,15 @@ class _ReleveFormScreenState extends State<ReleveFormScreen> {
       _nomBorne = args['nomBorne'];
       _releves = args['releves'];
       _tarifM3 = args['tarifM3'];
+      _releveAModifier = args['releveAModifier'];
+      _indexModifier = args['indexModifier'];
+
+      if (_estModification) {
+        _indexCourantCtrl.text = _releveAModifier!.indexCourant.toString();
+        _indexPrecedentCtrl.text = _releveAModifier!.indexPrecedent.toString();
+        _date = _releveAModifier!.date;
+        _paye = _releveAModifier!.paye;
+      }
       _init = true;
     }
 
@@ -82,8 +102,14 @@ class _ReleveFormScreenState extends State<ReleveFormScreen> {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: kLabel),
-        title: const Text('Nouveau relevé',
-            style: TextStyle(color: kLabel, fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
+        title: Text(
+          _estModification ? 'Modifier le relevé' : 'Nouveau relevé',
+          style: const TextStyle(
+              color: kLabel,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.3),
+        ),
         centerTitle: false,
       ),
       body: Form(
@@ -91,12 +117,10 @@ class _ReleveFormScreenState extends State<ReleveFormScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Borne non modifiable
             _SectionLabel('Borne'),
             _InfoTile(_nomBorne),
             const SizedBox(height: 20),
 
-            // Index courant
             _SectionLabel('Index courant (m³)'),
             _ChampTexte(
               controller: _indexCourantCtrl,
@@ -105,13 +129,14 @@ class _ReleveFormScreenState extends State<ReleveFormScreen> {
                 if (v == null || v.trim().isEmpty) return 'Champ obligatoire';
                 if (double.tryParse(v.trim()) == null) return 'Nombre invalide';
                 final prec = double.tryParse(_indexPrecedentCtrl.text.trim());
-                if (prec != null && double.parse(v.trim()) <= prec) return 'Doit être supérieur à l\'index précédent';
+                if (prec != null && double.parse(v.trim()) <= prec) {
+                  return 'Doit être supérieur à l\'index précédent';
+                }
                 return null;
               },
             ),
             const SizedBox(height: 16),
 
-            // Index précédent
             _SectionLabel('Index précédent (m³)'),
             _ChampTexte(
               controller: _indexPrecedentCtrl,
@@ -124,7 +149,6 @@ class _ReleveFormScreenState extends State<ReleveFormScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Date
             _SectionLabel('Date du relevé'),
             GestureDetector(
               onTap: _choisirDate,
@@ -133,34 +157,48 @@ class _ReleveFormScreenState extends State<ReleveFormScreen> {
                 decoration: BoxDecoration(
                   color: kCard,
                   borderRadius: BorderRadius.circular(12),
-                  boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 6, offset: Offset(0, 2))],
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x08000000), blurRadius: 6, offset: Offset(0, 2))
+                  ],
                 ),
                 child: Row(
                   children: [
                     const Icon(CupertinoIcons.calendar, color: kTeal, size: 20),
                     const SizedBox(width: 10),
-                    Text(_formatDate(_date), style: const TextStyle(fontSize: 15, color: kLabel, fontWeight: FontWeight.w500)),
+                    Text(_formatDate(_date),
+                        style: const TextStyle(
+                            fontSize: 15,
+                            color: kLabel,
+                            fontWeight: FontWeight.w500)),
                     const Spacer(),
-                    const Icon(CupertinoIcons.chevron_right, size: 14, color: kSublabel),
+                    const Icon(CupertinoIcons.chevron_right,
+                        size: 14, color: kSublabel),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 16),
 
-            // Statut payé
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               decoration: BoxDecoration(
                 color: kCard,
                 borderRadius: BorderRadius.circular(12),
-                boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 6, offset: Offset(0, 2))],
+                boxShadow: const [
+                  BoxShadow(color: Color(0x08000000), blurRadius: 6, offset: Offset(0, 2))
+                ],
               ),
               child: Row(
                 children: [
                   const Icon(CupertinoIcons.checkmark_seal, color: kTeal, size: 20),
                   const SizedBox(width: 10),
-                  const Expanded(child: Text('Payé', style: TextStyle(fontSize: 15, color: kLabel, fontWeight: FontWeight.w500))),
+                  const Expanded(
+                    child: Text('Payé',
+                        style: TextStyle(
+                            fontSize: 15,
+                            color: kLabel,
+                            fontWeight: FontWeight.w500)),
+                  ),
                   Switch.adaptive(
                     value: _paye,
                     activeColor: kTeal,
@@ -171,7 +209,6 @@ class _ReleveFormScreenState extends State<ReleveFormScreen> {
             ),
             const SizedBox(height: 32),
 
-            // Bouton enregistrer
             SizedBox(
               width: double.infinity,
               height: 52,
@@ -180,10 +217,17 @@ class _ReleveFormScreenState extends State<ReleveFormScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: kTeal,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                   elevation: 0,
                 ),
-                child: const Text('Enregistrer', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: -0.2)),
+                child: Text(
+                  _estModification ? 'Enregistrer les modifications' : 'Enregistrer',
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.2),
+                ),
               ),
             ),
           ],
@@ -201,7 +245,12 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Text(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kSublabel, letterSpacing: 0.2)),
+      child: Text(text,
+          style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: kSublabel,
+              letterSpacing: 0.2)),
     );
   }
 }
@@ -218,7 +267,9 @@ class _InfoTile extends StatelessWidget {
         color: const Color(0xFFE8F7F5),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Text(text, style: const TextStyle(fontSize: 15, color: kTeal, fontWeight: FontWeight.w600)),
+      child: Text(text,
+          style: const TextStyle(
+              fontSize: 15, color: kTeal, fontWeight: FontWeight.w600)),
     );
   }
 }
@@ -228,7 +279,11 @@ class _ChampTexte extends StatelessWidget {
   final String hint;
   final String? Function(String?) validator;
 
-  const _ChampTexte({required this.controller, required this.hint, required this.validator});
+  const _ChampTexte({
+    required this.controller,
+    required this.hint,
+    required this.validator,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -236,17 +291,27 @@ class _ChampTexte extends StatelessWidget {
       controller: controller,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       validator: validator,
-      style: const TextStyle(fontSize: 15, color: kLabel, fontWeight: FontWeight.w500),
+      style: const TextStyle(
+          fontSize: 15, color: kLabel, fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: kSublabel, fontSize: 15),
         filled: true,
         fillColor: kCard,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: kTeal, width: 1.5)),
-        errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: kDanger)),
-        focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: kDanger)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: kTeal, width: 1.5)),
+        errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: kDanger)),
+        focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: kDanger)),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
     );
   }
